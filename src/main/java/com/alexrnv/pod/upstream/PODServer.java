@@ -1,8 +1,10 @@
 package com.alexrnv.pod.upstream;
 
+import com.alexrnv.pod.bean.ConfigBean;
 import com.alexrnv.pod.bean.HttpClientResponseBean;
-import com.alexrnv.pod.downstream.DownloadClient;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
+import com.alexrnv.pod.downstream.DownloadClient;
+import com.alexrnv.pod.http.HttpCodes;
 import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
@@ -31,7 +33,10 @@ public class PODServer extends AbstractVerticle {
     @Override
     public void start() throws Exception {
 
+        final ConfigBean config = readConfig();
+
         DeploymentOptions downloaderOptions = new DeploymentOptions()
+                .setConfig(vertx.getOrCreateContext().config())
                 .setInstances(1);
 
         vertx.deployVerticle(DownloadClient.class.getName(), downloaderOptions, h -> {
@@ -43,7 +48,7 @@ public class PODServer extends AbstractVerticle {
 
         vertx.createHttpServer().requestHandler(request -> {
             HttpMethod method = request.method();
-            if(!allowedMethods.contains(request.method())) {
+            if (!allowedMethods.contains(request.method())) {
                 LOG.info("Not allowed method " + method);
                 request.response()
                         .setStatusCode(HTTP_CODE_METHOD_NOT_ALLOWED)
@@ -52,24 +57,43 @@ public class PODServer extends AbstractVerticle {
             } else {
                 //serialize headers and params
                 JsonObject jsonRequest = new HttpServerRequestBean(request).asJsonObject();
-                if(jsonRequest == null) {
+                if (jsonRequest == null) {
                     request.response()
                             .setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR)
                             .end();
                 } else {
-                    vertx.eventBus().send("downloader", jsonRequest, new DeliveryOptions().setSendTimeout(180000), r -> {
+                    DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs);
+                    vertx.eventBus().send(config.podTopic, jsonRequest, options, r -> {
                         HttpServerResponse response = request.response();
                         JsonObject jsonObject = (JsonObject) r.result().body();
-                        if(jsonObject == null) {
+                        if (jsonObject == null) {
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                         } else {
                             HttpClientResponseBean responseBean = HttpClientResponseBean.fromJsonObject(jsonObject);
-                            String fileName = responseBean.headers.get("Location");
-                            response.sendFile(fileName);
+                            if (HttpCodes.isCodeOk(responseBean.statusCode)) {
+                                String fileName = responseBean.headers.get(config.resultHeader);
+                                response.sendFile(fileName);
+                            } else {
+                                response.setStatusCode(responseBean.statusCode)
+                                        .setStatusMessage(responseBean.statusMessage)
+                                        .end();
+                            }
                         }
                     });
                 }
             }
-        }).listen(8070, "localhost");
+        }).listen(config.upstream.port, config.upstream.host);
+    }
+
+    private ConfigBean readConfig() {
+        JsonObject json = null;
+        try {
+            json = vertx.getOrCreateContext().config();
+            return new ConfigBean(json);
+        } catch (Exception e) {
+            LOG.error("Invalid config " + json, e);
+            vertx.close();
+            throw e;
+        }
     }
 }

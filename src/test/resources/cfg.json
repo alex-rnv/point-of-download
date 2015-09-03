@@ -1,0 +1,11 @@
+{
+  "requestTimeoutMs": 180000,
+  "downloadHeader": "Referer",
+  "resultHeader": "Location",
+  "podTopic": "downloader",
+  "cacheDir": "%t",
+  "upstream": {
+    "host": "localhost",
+    "port": 8070
+  }
+}
