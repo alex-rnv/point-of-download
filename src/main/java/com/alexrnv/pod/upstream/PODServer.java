@@ -14,6 +14,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import org.apache.commons.lang3.StringUtils;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -31,6 +32,8 @@ public class PODServer extends PODVerticle {
     private final List<HttpMethod> allowedMethods = Collections.singletonList(HttpMethod.GET);
     @Override
     public void start0() {
+        final List<String> skipHeaders = Arrays.asList("Host", config.downloadHeader);
+
         DeploymentOptions downloaderOptions = new DeploymentOptions()
                 .setConfig(vertx.getOrCreateContext().config())
                 .setInstances(1);
@@ -43,7 +46,8 @@ public class PODServer extends PODVerticle {
         });
 
         vertx.createHttpServer().requestHandler(request -> {
-            LOG.debug("Received request: " + request);
+            HttpServerRequestBean requestBean = new HttpServerRequestBean(request);
+            LOG.info("Received request: " + requestBean);
             HttpMethod method = request.method();
             if (!allowedMethods.contains(request.method())) {
                 LOG.info("Not allowed method " + method);
@@ -67,6 +71,7 @@ public class PODServer extends PODVerticle {
                         } else {
                             JsonObject jsonObject = (JsonObject) r.result().body();
                             HttpClientResponseBean responseBean = HttpClientResponseBean.fromJsonObject(jsonObject);
+                            copyHeaders(responseBean, response, skipHeaders);
                             if (HttpCodes.isCodeOk(responseBean.statusCode)) {
                                 String fileName = responseBean.headers.get(config.resultHeader);
                                 response.sendFile(fileName);
@@ -82,5 +87,16 @@ public class PODServer extends PODVerticle {
         }).listen(config.upstream.port, config.upstream.host);
     }
 
+
+    private void copyHeaders(HttpClientResponseBean responseBean, HttpServerResponse response, List<String> skipHeaders) {
+        responseBean.headers.names().forEach(k -> {
+            if (!skipHeaders.contains(k)) {
+                responseBean.headers.getAll(k).forEach(v -> {
+                    LOG.debug("Copy header " + k + ":" + v);
+                    response.putHeader(k, v);
+                });
+            }
+        });
+    }
 
 }

@@ -8,7 +8,6 @@ import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.OpenOptions;
 import io.vertx.core.http.HttpClient;
 import io.vertx.core.http.HttpClientRequest;
-import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
@@ -53,7 +52,7 @@ public class DownloadClient extends PODVerticle {
 
             CompletableFuture<HttpClientResponseBean> result = cache.compute(requestedUrl, (url, val) -> {
                 if (val != null) {
-                    LOG.debug("Returning cached value for url " + url + ": " + val);
+                    LOG.info("Returning cached future for url " + url + ": " + val);
                     return val;
                 } else {
                     CompletableFuture<HttpClientResponseBean> r = new CompletableFuture<>();
@@ -63,6 +62,8 @@ public class DownloadClient extends PODVerticle {
 
                     clientRequest
                             .handler(response -> {
+                                HttpClientResponseBean rb = new HttpClientResponseBean(response);
+                                LOG.info("Referrer response: " + rb);
                                 response.pause();
                                 final String fileName = getFileName(clientRequest);
                                 OpenOptions openOptions = new OpenOptions().setCreate(true).setTruncateExisting(true);
@@ -79,7 +80,7 @@ public class DownloadClient extends PODVerticle {
                                     response.endHandler(e -> {
                                                 asyncFile.flush().close(event -> {
                                                     if (event.succeeded()) {
-                                                        HttpClientResponseBean rb = generateResponseAndScheduleCleanup(response, url, fileName);
+                                                        updateResponseAndScheduleCleanup(rb, url, fileName);
                                                         r.complete(rb);
                                                     } else {
                                                         LOG.error("Failed to close file " + fileName, event.cause());
@@ -127,18 +128,16 @@ public class DownloadClient extends PODVerticle {
         return config.cacheDir + "f" + RandomStringUtils.randomAlphanumeric(8) + "_" + StringUtils.substringAfterLast(clientRequest.uri(), "/");
     }
 
-    private HttpClientResponseBean generateResponseAndScheduleCleanup(HttpClientResponse response, String url, String filename) {
-        HttpClientResponseBean bean = new HttpClientResponseBean(response);
+    private void updateResponseAndScheduleCleanup(HttpClientResponseBean bean, String url, String filename) {
         bean.headers.add(config.resultHeader, filename);
         scheduler.schedule(() -> {
             cache.remove(url);
             try {
-                Files.delete(Paths.get(filename));
+                Files.delete(Paths.get(config.cacheDir, filename));
             } catch (IOException e) {
                 LOG.error("Failed to delete file", e);
             }
         }, config.ttlMin, TimeUnit.MINUTES);
-        return bean;
     }
 
 }

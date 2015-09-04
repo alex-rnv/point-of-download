@@ -83,8 +83,8 @@ public class HttpServerRequestBean {
                 ", uri='" + uri + '\'' +
                 ", path='" + path + '\'' +
                 ", query='" + query + '\'' +
-                ", headers=" + headers +
-                ", params=" + params +
+                ", headers=" + BeanUtil.toString(headers) +
+                ", params=" + BeanUtil.toString(params) +
                 '}';
     }
 }

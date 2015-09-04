@@ -70,4 +70,15 @@ public class HttpClientResponseBean {
             return null;
         }
     }
+
+    @Override
+    public String toString() {
+        return "HttpClientResponseBean{" +
+                "statusCode=" + statusCode +
+                ", statusMessage='" + statusMessage + '\'' +
+                ", headers=" + BeanUtil.toString(headers) +
+                ", trailers=" + BeanUtil.toString(trailers) +
+                ", cookies=" + cookies +
+                '}';
+    }
 }

@@ -2,7 +2,7 @@ package com.alexrnv.pod.bean;
 
 import io.vertx.core.json.JsonObject;
 
-import static java.lang.System.getProperty;
+import static com.alexrnv.pod.bean.BeanUtil.resolvePath;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -27,10 +27,6 @@ public class ConfigBean {
         this.ttlMin = requireNonNull(json.getInteger("ttlMin"));
         JsonObject ups = requireNonNull(json.getJsonObject("upstream"));
         this.upstream = new Upstream(requireNonNull(ups.getString("host")), requireNonNull(ups.getInteger("port")));
-    }
-
-    private static String resolvePath(String path) {
-        return requireNonNull(path).replace("%t", getProperty("java.io.tmpdir"));
     }
 
     public static class Upstream {
