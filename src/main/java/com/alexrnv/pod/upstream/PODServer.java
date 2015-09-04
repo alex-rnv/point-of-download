@@ -1,11 +1,10 @@
 package com.alexrnv.pod.upstream;
 
-import com.alexrnv.pod.bean.ConfigBean;
 import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
+import com.alexrnv.pod.common.PODVerticle;
 import com.alexrnv.pod.downstream.DownloadClient;
 import com.alexrnv.pod.http.HttpCodes;
-import io.vertx.core.AbstractVerticle;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.http.HttpMethod;
@@ -22,19 +21,16 @@ import static com.alexrnv.pod.http.HttpCodes.HTTP_CODE_INTERNAL_SERVER_ERROR;
 import static com.alexrnv.pod.http.HttpCodes.HTTP_CODE_METHOD_NOT_ALLOWED;
 
 /**
- * @author ARyazanov
+ * Author Alex
  *         9/1/2015.
  */
-public class PODServer extends AbstractVerticle {
+public class PODServer extends PODVerticle {
 
     private static final Logger LOG = LoggerFactory.getLogger(PODServer.class);
 
     private final List<HttpMethod> allowedMethods = Collections.singletonList(HttpMethod.GET);
     @Override
-    public void start() throws Exception {
-
-        final ConfigBean config = readConfig();
-
+    public void start0() {
         DeploymentOptions downloaderOptions = new DeploymentOptions()
                 .setConfig(vertx.getOrCreateContext().config())
                 .setInstances(1);
@@ -47,6 +43,7 @@ public class PODServer extends AbstractVerticle {
         });
 
         vertx.createHttpServer().requestHandler(request -> {
+            LOG.debug("Received request: " + request);
             HttpMethod method = request.method();
             if (!allowedMethods.contains(request.method())) {
                 LOG.info("Not allowed method " + method);
@@ -65,10 +62,10 @@ public class PODServer extends AbstractVerticle {
                     DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs);
                     vertx.eventBus().send(config.podTopic, jsonRequest, options, r -> {
                         HttpServerResponse response = request.response();
-                        JsonObject jsonObject = (JsonObject) r.result().body();
-                        if (jsonObject == null) {
+                        if (r.result() == null || r.result().body() == null) {
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                         } else {
+                            JsonObject jsonObject = (JsonObject) r.result().body();
                             HttpClientResponseBean responseBean = HttpClientResponseBean.fromJsonObject(jsonObject);
                             if (HttpCodes.isCodeOk(responseBean.statusCode)) {
                                 String fileName = responseBean.headers.get(config.resultHeader);
@@ -85,15 +82,5 @@ public class PODServer extends AbstractVerticle {
         }).listen(config.upstream.port, config.upstream.host);
     }
 
-    private ConfigBean readConfig() {
-        JsonObject json = null;
-        try {
-            json = vertx.getOrCreateContext().config();
-            return new ConfigBean(json);
-        } catch (Exception e) {
-            LOG.error("Invalid config " + json, e);
-            vertx.close();
-            throw e;
-        }
-    }
+
 }

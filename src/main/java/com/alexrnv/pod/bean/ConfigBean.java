@@ -6,7 +6,7 @@ import static java.lang.System.getProperty;
 import static java.util.Objects.requireNonNull;
 
 /**
- * @author ARyazanov
+ * Author Alex
  *         9/3/2015.
  */
 public class ConfigBean {
@@ -15,6 +15,7 @@ public class ConfigBean {
     public final String resultHeader;
     public final String podTopic;
     public final String cacheDir;
+    public final int ttlMin;
     public final Upstream upstream;
 
     public ConfigBean(JsonObject json) {
@@ -23,6 +24,7 @@ public class ConfigBean {
         this.resultHeader = requireNonNull(json.getString("resultHeader"));
         this.podTopic = requireNonNull(json.getString("podTopic"));
         this.cacheDir = resolvePath(json.getString("cacheDir"));
+        this.ttlMin = requireNonNull(json.getInteger("ttlMin"));
         JsonObject ups = requireNonNull(json.getJsonObject("upstream"));
         this.upstream = new Upstream(requireNonNull(ups.getString("host")), requireNonNull(ups.getInteger("port")));
     }

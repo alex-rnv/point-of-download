@@ -1,9 +1,8 @@
 package com.alexrnv.pod.downstream;
 
-import com.alexrnv.pod.bean.ConfigBean;
 import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
-import io.vertx.core.AbstractVerticle;
+import com.alexrnv.pod.common.PODVerticle;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.OpenOptions;
@@ -17,26 +16,31 @@ import io.vertx.core.streams.Pump;
 import org.apache.commons.lang3.RandomStringUtils;
 import org.apache.commons.lang3.StringUtils;
 
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.*;
 
 /**
- * @author ARyazanov
+ * Author Alex
  *         9/1/2015.
  */
-public class DownloadClient extends AbstractVerticle {
+public class DownloadClient extends PODVerticle {
 
     private static final Logger LOG = LoggerFactory.getLogger(DownloadClient.class);
+
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> {
+        Thread t = new Thread(r);
+        t.setDaemon(true);
+        return t;
+    });
 
     private final ConcurrentMap<String, CompletableFuture<HttpClientResponseBean>> cache = new ConcurrentHashMap<>();
 
     @Override
-    public void start() throws Exception {
-
-        final ConfigBean config = readConfig();
+    public void start0() {
         final HttpClient client = vertx.createHttpClient();
         final EventBus eventBus = vertx.eventBus();
 
@@ -50,7 +54,6 @@ public class DownloadClient extends AbstractVerticle {
             CompletableFuture<HttpClientResponseBean> result = cache.compute(requestedUrl, (url, val) -> {
                 if (val != null) {
                     LOG.debug("Returning cached value for url " + url + ": " + val);
-                    //System.out.println("Returning " + val);
                     return val;
                 } else {
                     CompletableFuture<HttpClientResponseBean> r = new CompletableFuture<>();
@@ -61,7 +64,7 @@ public class DownloadClient extends AbstractVerticle {
                     clientRequest
                             .handler(response -> {
                                 response.pause();
-                                final String fileName = getFileName(clientRequest, config);
+                                final String fileName = getFileName(clientRequest);
                                 OpenOptions openOptions = new OpenOptions().setCreate(true).setTruncateExisting(true);
                                 vertx.fileSystem().open(fileName, openOptions, fileEvent -> {
                                     if (fileEvent.failed()) {
@@ -74,12 +77,10 @@ public class DownloadClient extends AbstractVerticle {
                                     final Pump downloadPump = Pump.pump(response, asyncFile);
 
                                     response.endHandler(e -> {
-//                                                response.headers().forEach(h -> {
-//                                                    System.out.println(h.getKey() + ":" + h.getValue());
-//                                                });
                                                 asyncFile.flush().close(event -> {
                                                     if (event.succeeded()) {
-                                                        r.complete(responseBean(response, fileName, config));
+                                                        HttpClientResponseBean rb = generateResponseAndScheduleCleanup(response, url, fileName);
+                                                        r.complete(rb);
                                                     } else {
                                                         LOG.error("Failed to close file " + fileName, event.cause());
                                                         r.completeExceptionally(event.cause());
@@ -115,45 +116,29 @@ public class DownloadClient extends AbstractVerticle {
         upstreamRequest.headers.names().forEach(k -> {
             if (!skipHeaders.contains(k)) {
                 upstreamRequest.headers.getAll(k).forEach(v -> {
-                    //System.out.println("Copy header " + k + ":" + v);
                     LOG.debug("Copy header " + k + ":" + v);
                     clientRequest.putHeader(k, v);
                 });
             }
-
-
         });
-
-        //clientRequest.putHeader("Accept-Encoding", "gzip");
-        //clientRequest.putHeader("Connection", "keep-alive");
-        //clientRequest.putHeader("Proxy-Connection", "keep-alive");
-        //clientRequest.putHeader("Host", "servicetest.globalweathercorp.com");
-        //clientRequest.putHeader("Accept", "*/*");
-//        clientRequest.headers().forEach(h -> {
-//            System.out.println(h.getKey() + ":" + h.getValue());
-//        });
     }
 
-    private String getFileName(HttpClientRequest clientRequest, ConfigBean config) {
+    private String getFileName(HttpClientRequest clientRequest) {
         return config.cacheDir + "f" + RandomStringUtils.randomAlphanumeric(8) + "_" + StringUtils.substringAfterLast(clientRequest.uri(), "/");
     }
 
-    private HttpClientResponseBean responseBean(HttpClientResponse response, String filename, ConfigBean config) {
+    private HttpClientResponseBean generateResponseAndScheduleCleanup(HttpClientResponse response, String url, String filename) {
         HttpClientResponseBean bean = new HttpClientResponseBean(response);
         bean.headers.add(config.resultHeader, filename);
+        scheduler.schedule(() -> {
+            cache.remove(url);
+            try {
+                Files.delete(Paths.get(filename));
+            } catch (IOException e) {
+                LOG.error("Failed to delete file", e);
+            }
+        }, config.ttlMin, TimeUnit.MINUTES);
         return bean;
-    }
-
-    private ConfigBean readConfig() {
-        JsonObject json = null;
-        try {
-            json = vertx.getOrCreateContext().config();
-            return new ConfigBean(json);
-        } catch (Exception e) {
-            LOG.error("Invalid config " + json, e);
-            vertx.close();
-            throw e;
-        }
     }
 
 }

@@ -18,7 +18,7 @@ import java.util.List;
  * Date: 9/2/2015
  * Time: 5:21 PM
  *
- * @author: Alex
+ * Author: Alex
  */
 public class HttpClientResponseBean {
     private static final Logger LOG = LoggerFactory.getLogger(HttpClientResponseBean.class);

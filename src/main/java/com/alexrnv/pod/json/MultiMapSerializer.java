@@ -11,7 +11,7 @@ import java.io.IOException;
  * Date: 9/2/2015
  * Time: 1:51 PM
  *
- * @author: Alex
+ * Author: Alex
  */
 public class MultiMapSerializer extends JsonSerializer<MultiMap> {
     @Override

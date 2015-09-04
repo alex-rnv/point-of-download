@@ -7,7 +7,6 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.MultiMap;
-import io.vertx.core.http.CaseInsensitiveHeaders;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -19,7 +18,7 @@ import java.io.IOException;
  * Date: 9/2/2015
  * Time: 12:00 PM
  *
- * @author: Alex
+ * Author: Alex
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class HttpServerRequestBean {
@@ -88,21 +87,4 @@ public class HttpServerRequestBean {
                 ", params=" + params +
                 '}';
     }
-
-    public static void main(String[] args) throws IOException {
-        MultiMap headers = new CaseInsensitiveHeaders();
-        headers.add("h1", "v1");
-        headers.add("h1", "v11");
-        headers.add("h1", "v1111");
-        headers.add("h2", "v2");
-
-        MultiMap params = new CaseInsensitiveHeaders();
-        params.add("p1", "v1");
-        params.add("p1", "v2");
-
-        HttpServerRequestBean bean = new HttpServerRequestBean("http://a:80/b/c?x=y", "/b/c?x=y", "/b/c", "x=y", headers, params);
-
-        System.out.println(bean.asJsonObject().toString());
-    }
-
 }

@@ -4,6 +4,7 @@
   "resultHeader": "Location",
   "podTopic": "downloader",
   "cacheDir": "%t",
+  "ttlMin": 120,
   "upstream": {
     "host": "localhost",
     "port": 8070

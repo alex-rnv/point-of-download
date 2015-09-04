@@ -1,7 +1,6 @@
 package com.alexrnv.pod.json;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -14,11 +13,11 @@ import java.io.IOException;
  * Date: 9/2/2015
  * Time: 3:55 PM
  *
- * @author: Alex
+ * Author: Alex
  */
 public class MultiMapDeserializer extends JsonDeserializer<MultiMap> {
     @Override
-    public MultiMap deserialize(JsonParser p, DeserializationContext ctxt) throws IOException, JsonProcessingException {
+    public MultiMap deserialize(JsonParser p, DeserializationContext ctxt) throws IOException {
         MultiMap multiMap = new CaseInsensitiveHeaders();
         while (p.nextToken() != JsonToken.END_OBJECT) {
             String key = p.getCurrentName();
