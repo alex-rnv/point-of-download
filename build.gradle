@@ -42,7 +42,7 @@ shadowJar {
     classifier = ''
     manifest {
         attributes 'Main-Class': 'io.vertx.core.Starter'
-        attributes 'Main-Verticle': 'com.alexrnv.pod.upstream.PODServer'
+        attributes 'Main-Verticle': 'com.alexrnv.pod.upstream.WgetServer'
     }
     mergeServiceFiles {
         include 'META-INF/services/io.vertx.core.spi.VerticleFactory'
@@ -57,10 +57,10 @@ bintray {
     publish = true
     pkg {
         repo = 'maven'
-        name = 'point-of-download'
-        vcsUrl = 'https://github.com/alex-rnv/point-of-download'
+        name = 'wget-server'
+        vcsUrl = 'https://github.com/alex-rnv/wget-server'
         licenses = ['Apache-2.0']
-        labels = ['pod']
+        labels = ['wgets']
         publicDownloadNumbers = true
         version {
             name = project.version //Bintray logical version name
