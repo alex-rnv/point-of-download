@@ -177,7 +177,7 @@ public class DownloadClient extends WgetVerticle {
         scheduler.schedule(() -> {
             cache.remove(url);
             try {
-                Files.delete(Paths.get(config.cacheDir, filename));
+                Files.delete(Paths.get(filename));
             } catch (IOException e) {
                 LOG.error("Failed to delete file", e);
             }
