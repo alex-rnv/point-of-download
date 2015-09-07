@@ -8,5 +8,9 @@
   "upstream": {
     "host": "localhost",
     "port": 8070
+  },
+  "retry": {
+    "numRetries": 2,
+    "delayMs": 1000
   }
 }

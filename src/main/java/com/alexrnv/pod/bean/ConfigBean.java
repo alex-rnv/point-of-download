@@ -17,6 +17,7 @@ public class ConfigBean {
     public final String cacheDir;
     public final int ttlMin;
     public final Upstream upstream;
+    public final Retry retry;
 
     public ConfigBean(JsonObject json) {
         this.requestTimeoutMs = requireNonNull(json.getLong("requestTimeoutMs"));
@@ -27,6 +28,18 @@ public class ConfigBean {
         this.ttlMin = requireNonNull(json.getInteger("ttlMin"));
         JsonObject ups = requireNonNull(json.getJsonObject("upstream"));
         this.upstream = new Upstream(requireNonNull(ups.getString("host")), requireNonNull(ups.getInteger("port")));
+        JsonObject rtr = requireNonNull(json.getJsonObject("retry"));
+        this.retry = new Retry(requireNonNull(rtr.getInteger("numRetries")), requireNonNull(rtr.getInteger("delayMs")));
+    }
+
+    public static class Retry {
+        public final int numRetries;
+        public final int delayMs;
+
+        public Retry(int numRetries, int delayMs) {
+            this.numRetries = numRetries;
+            this.delayMs = delayMs;
+        }
     }
 
     public static class Upstream {

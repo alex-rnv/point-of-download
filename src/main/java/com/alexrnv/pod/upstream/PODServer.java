@@ -4,7 +4,7 @@ import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
 import com.alexrnv.pod.common.PODVerticle;
 import com.alexrnv.pod.downstream.DownloadClient;
-import com.alexrnv.pod.http.HttpCodes;
+import com.alexrnv.pod.http.Http;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
 import io.vertx.core.http.HttpMethod;
@@ -18,8 +18,8 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
-import static com.alexrnv.pod.http.HttpCodes.HTTP_CODE_INTERNAL_SERVER_ERROR;
-import static com.alexrnv.pod.http.HttpCodes.HTTP_CODE_METHOD_NOT_ALLOWED;
+import static com.alexrnv.pod.http.Http.HTTP_CODE_INTERNAL_SERVER_ERROR;
+import static com.alexrnv.pod.http.Http.HTTP_CODE_METHOD_NOT_ALLOWED;
 
 /**
  * Author Alex
@@ -72,7 +72,7 @@ public class PODServer extends PODVerticle {
                             JsonObject jsonObject = (JsonObject) r.result().body();
                             HttpClientResponseBean responseBean = HttpClientResponseBean.fromJsonObject(jsonObject);
                             copyHeaders(responseBean, response, skipHeaders);
-                            if (HttpCodes.isCodeOk(responseBean.statusCode)) {
+                            if (Http.isCodeOk(responseBean.statusCode)) {
                                 String fileName = responseBean.headers.get(config.resultHeader);
                                 response.sendFile(fileName);
                             } else {
@@ -86,7 +86,6 @@ public class PODServer extends PODVerticle {
             }
         }).listen(config.upstream.port, config.upstream.host);
     }
-
 
     private void copyHeaders(HttpClientResponseBean responseBean, HttpServerResponse response, List<String> skipHeaders) {
         responseBean.headers.names().forEach(k -> {
