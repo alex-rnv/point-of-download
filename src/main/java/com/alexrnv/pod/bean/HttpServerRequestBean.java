@@ -1,6 +1,6 @@
 package com.alexrnv.pod.bean;
 
-import com.alexrnv.pod.json.PODModule;
+import com.alexrnv.pod.json.WgetModule;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -27,7 +27,7 @@ public class HttpServerRequestBean {
 
     @JsonIgnore
     private static ObjectMapper mapper = new ObjectMapper()
-            .registerModule(new PODModule());
+            .registerModule(new WgetModule());
 
     @JsonProperty
     public String absoluteUri;

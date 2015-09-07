@@ -2,7 +2,7 @@ package com.alexrnv.pod.downstream;
 
 import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
-import com.alexrnv.pod.common.PODVerticle;
+import com.alexrnv.pod.common.WgetVerticle;
 import io.vertx.core.VertxException;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.file.AsyncFile;
@@ -31,7 +31,7 @@ import static org.apache.commons.lang3.StringUtils.substringAfterLast;
  * Author Alex
  *         9/1/2015.
  */
-public class DownloadClient extends PODVerticle {
+public class DownloadClient extends WgetVerticle {
 
     private static final Logger LOG = LoggerFactory.getLogger(DownloadClient.class);
 

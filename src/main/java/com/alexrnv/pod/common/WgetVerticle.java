@@ -12,9 +12,9 @@ import io.vertx.core.logging.LoggerFactory;
  *
  * Author: Alex
  */
-public abstract class PODVerticle extends AbstractVerticle {
+public abstract class WgetVerticle extends AbstractVerticle {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PODVerticle.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WgetVerticle.class);
 
     protected ConfigBean config;
 

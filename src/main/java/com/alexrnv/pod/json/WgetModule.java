@@ -9,8 +9,8 @@ import io.vertx.core.MultiMap;
  *
  * Author: Alex
  */
-public class PODModule extends SimpleModule {
-    public PODModule() {
+public class WgetModule extends SimpleModule {
+    public WgetModule() {
         super();
         addSerializer(MultiMap.class, new MultiMapSerializer());
         addDeserializer(MultiMap.class, new MultiMapDeserializer());

@@ -2,7 +2,7 @@ package com.alexrnv.pod.upstream;
 
 import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
-import com.alexrnv.pod.common.PODVerticle;
+import com.alexrnv.pod.common.WgetVerticle;
 import com.alexrnv.pod.downstream.DownloadClient;
 import com.alexrnv.pod.http.Http;
 import io.vertx.core.DeploymentOptions;
@@ -25,9 +25,9 @@ import static com.alexrnv.pod.http.Http.HTTP_CODE_METHOD_NOT_ALLOWED;
  * Author Alex
  *         9/1/2015.
  */
-public class PODServer extends PODVerticle {
+public class WgetServer extends WgetVerticle {
 
-    private static final Logger LOG = LoggerFactory.getLogger(PODServer.class);
+    private static final Logger LOG = LoggerFactory.getLogger(WgetServer.class);
 
     private final List<HttpMethod> allowedMethods = Collections.singletonList(HttpMethod.GET);
     @Override

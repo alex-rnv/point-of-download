@@ -1,6 +1,6 @@
 package com.alexrnv.pod.bean;
 
-import com.alexrnv.pod.json.PODModule;
+import com.alexrnv.pod.json.WgetModule;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -25,7 +25,7 @@ public class HttpClientResponseBean {
 
     @JsonIgnore
     private static ObjectMapper mapper = new ObjectMapper()
-            .registerModule(new PODModule());
+            .registerModule(new WgetModule());
 
     @JsonProperty
     public int statusCode;

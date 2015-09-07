@@ -24,7 +24,7 @@ import java.util.Random;
  *         9/1/2015.
  */
 @RunWith(VertxUnitRunner.class)
-public class PODServerTest {
+public class WgetServerTest {
 
     private Vertx vertx;
     private HttpServer server;
@@ -59,7 +59,7 @@ public class PODServerTest {
         HttpClient client = vertx.createHttpClient();
         Async async = context.async();
         DeploymentOptions options = new DeploymentOptions().setConfig(readConfig("test_cfg.json"));
-        vertx.deployVerticle(PODServer.class.getName(), options, r -> {
+        vertx.deployVerticle(WgetServer.class.getName(), options, r -> {
             context.assertTrue(r.succeeded());
             async.complete();
         });
@@ -73,7 +73,7 @@ public class PODServerTest {
     public void testSameUrlDifferentClients(TestContext context) throws IOException {
         Async async = context.async();
         DeploymentOptions options = new DeploymentOptions().setConfig(readConfig("test_cfg.json"));
-        vertx.deployVerticle(PODServer.class.getName(), options, r -> {
+        vertx.deployVerticle(WgetServer.class.getName(), options, r -> {
             context.assertTrue(r.succeeded());
             async.complete();
         });
@@ -88,7 +88,7 @@ public class PODServerTest {
     public void testDifferentUrls(TestContext context) throws IOException {
         Async async1 = context.async();
         DeploymentOptions options = new DeploymentOptions().setConfig(readConfig("test_cfg.json"));
-        vertx.deployVerticle(PODServer.class.getName(), options, r -> {
+        vertx.deployVerticle(WgetServer.class.getName(), options, r -> {
             context.assertTrue(r.succeeded());
             async1.complete();
         });
