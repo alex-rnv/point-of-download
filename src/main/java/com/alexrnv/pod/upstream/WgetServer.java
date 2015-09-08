@@ -66,7 +66,11 @@ public class WgetServer extends WgetVerticle {
                     DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs);
                     vertx.eventBus().send(config.podTopic, jsonRequest, options, r -> {
                         HttpServerResponse response = request.response();
-                        if (r.result() == null || r.result().body() == null) {
+                        if(r.failed()) {
+                            LOG.error("Internal error", r.cause());
+                            response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
+                        } else if (r.result() == null || r.result().body() == null) {
+                            LOG.error("Internal error: empty response in event bus");
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                         } else {
                             JsonObject jsonObject = (JsonObject) r.result().body();
