@@ -14,8 +14,10 @@ Instead of using http get request directly, request is sent to wget-server, and 
 Wget-server is a standalone microservice implemented as [Vert.x 3](http://vertx.io/vertx2/) component. Generally, there is no need to include library in your dependencies, though it is possible.    
 ### Simple Java process    
 *Note:* vert.x runner should be in your system PATH, please follow [vert.x installation procedure](http://vertx.io/vertx2/install.html).    
-```wget https://bintray.com/artifact/download/alex-rnv-ru/maven/com/alexrnv/wget-server/1.0.1/wget-server-1.0.1.jar        
-java -jar wget-server-1.0.1.jar -conf <config_file>```    
+```
+wget https://bintray.com/artifact/download/alex-rnv-ru/maven/com/alexrnv/wget-server/1.0.1/wget-server-1.0.1.jar            
+java -jar wget-server-1.0.1.jar -conf <config_file>
+```    
 Configuration file is described further.    
 
 ### Vertx Service
