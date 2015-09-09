@@ -54,7 +54,7 @@ public class DownloadClient extends WgetVerticle {
             String requestedUrl = upstreamRequest.headers.get(config.downloadHeader);
 
             if(requestedUrl == null) {
-                LOG.error("Download header " + config.downloadHeader + " is not set");
+                LOG.error("Download header " + config.downloadHeader + " is not set for " + upstreamRequest.id);
                 message.reply(null);
                 return;
             }
@@ -95,7 +95,7 @@ public class DownloadClient extends WgetVerticle {
             clientRequest
                     .handler(response -> {
                         HttpClientResponseBean rb = new HttpClientResponseBean(response);
-                        LOG.info("Referrer response: " + rb);
+                        LOG.info("Referrer response for " + upstreamRequest.id + ": " + rb);
                         response.pause();
                         final String fileName = getFileName(clientRequest);
                         OpenOptions openOptions = new OpenOptions().setCreate(true).setTruncateExisting(true);
@@ -136,11 +136,11 @@ public class DownloadClient extends WgetVerticle {
                     .exceptionHandler(t -> {
                         LOG.error("Failed to process request ", t);
                         if(retryCounter > 1) {
-                            LOG.info("Retry, counter is " + retryCounter);
+                            LOG.info("Retry, counter is " + retryCounter + " for " + upstreamRequest.id);
                             scheduler.schedule(() -> doRequestWithRetry(client, upstreamRequest, reqUrl, retryCounter - 1, r),
                                     config.retry.delayMs, TimeUnit.MILLISECONDS);
                         } else {
-                            LOG.info("No more retries");
+                            LOG.info("No more retries for " + upstreamRequest.id);
                             r.completeExceptionally(t);
                         }
                     })
@@ -183,6 +183,7 @@ public class DownloadClient extends WgetVerticle {
         scheduler.schedule(() -> {
             cache.remove(url);
             try {
+                LOG.info("Cleaning cached file " + filename);
                 Files.delete(Paths.get(filename));
             } catch (IOException e) {
                 LOG.error("Failed to delete file", e);

@@ -19,7 +19,7 @@ import static org.junit.Assert.assertEquals;
  */
 public class HttpServerRequestBeanTest {
 
-    private final String json = "{\"absoluteUri\":\"http://a:80/b/c?x=y\",\"uri\":\"/b/c?x=y\",\"path\":\"/b/c\",\"query\":\"x=y\",\"headers\":{\"h1\":[\"v1\",\"v11\",\"v1111\"],\"h2\":[\"v2\"]},\"params\":{\"p1\":[\"v1\",\"v2\"]}}";
+    private final String json = "{\"id\":\"id\", \"absoluteUri\":\"http://a:80/b/c?x=y\",\"uri\":\"/b/c?x=y\",\"path\":\"/b/c\",\"query\":\"x=y\",\"headers\":{\"h1\":[\"v1\",\"v11\",\"v1111\"],\"h2\":[\"v2\"]},\"params\":{\"p1\":[\"v1\",\"v2\"]}}";
 
     @Test
     public void testMarshall() {
@@ -33,7 +33,7 @@ public class HttpServerRequestBeanTest {
         params.add("p1", "v1");
         params.add("p1", "v2");
 
-        HttpServerRequestBean bean = new HttpServerRequestBean("http://a:80/b/c?x=y", "/b/c?x=y", "/b/c", "x=y", headers, params);
+        HttpServerRequestBean bean = new HttpServerRequestBean("id", "http://a:80/b/c?x=y", "/b/c?x=y", "/b/c", "x=y", headers, params);
         assertJsonEquals(json, bean.asJsonObject().toString());
     }
 

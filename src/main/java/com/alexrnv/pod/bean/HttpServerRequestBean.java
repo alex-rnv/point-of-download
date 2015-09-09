@@ -11,6 +11,7 @@ import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
+import org.apache.commons.lang3.RandomStringUtils;
 
 import java.io.IOException;
 
@@ -30,6 +31,8 @@ public class HttpServerRequestBean {
             .registerModule(new WgetModule());
 
     @JsonProperty
+    public String id;
+    @JsonProperty
     public String absoluteUri;
     @JsonProperty
     public String uri;
@@ -45,10 +48,11 @@ public class HttpServerRequestBean {
     private HttpServerRequestBean(){}
 
     public HttpServerRequestBean(HttpServerRequest request) {
-        this(request.absoluteURI(), request.uri(), request.path(), request.query(), request.headers(), request.params());
+        this(RandomStringUtils.randomAlphanumeric(8), request.absoluteURI(), request.uri(), request.path(), request.query(), request.headers(), request.params());
     }
 
-    protected HttpServerRequestBean(String absoluteUri, String uri, String path, String query, MultiMap headers, MultiMap params) {
+    protected HttpServerRequestBean(String id, String absoluteUri, String uri, String path, String query, MultiMap headers, MultiMap params) {
+        this.id = id;
         this.absoluteUri = absoluteUri;
         this.uri = uri;
         this.path = path;
@@ -79,7 +83,8 @@ public class HttpServerRequestBean {
     @Override
     public String toString() {
         return "HttpServerRequestBean{" +
-                "absoluteUri='" + absoluteUri + '\'' +
+                "id='" + id + '\'' +
+                ", absoluteUri='" + absoluteUri + '\'' +
                 ", uri='" + uri + '\'' +
                 ", path='" + path + '\'' +
                 ", query='" + query + '\'' +

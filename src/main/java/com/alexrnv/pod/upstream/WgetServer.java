@@ -18,6 +18,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
+import static com.alexrnv.pod.http.Http.HTTP_CODE_BAD_REQUEST;
 import static com.alexrnv.pod.http.Http.HTTP_CODE_INTERNAL_SERVER_ERROR;
 import static com.alexrnv.pod.http.Http.HTTP_CODE_METHOD_NOT_ALLOWED;
 
@@ -55,27 +56,28 @@ public class WgetServer extends WgetVerticle {
                         .setStatusCode(HTTP_CODE_METHOD_NOT_ALLOWED)
                         .putHeader("Allow", StringUtils.join(allowedMethods, ","))
                         .end();
+            } else if (!request.headers().contains(config.downloadHeader)) {
+                LOG.error("Requested url is not set in " + config.downloadHeader + " header");
+                request.response()
+                        .setStatusCode(HTTP_CODE_BAD_REQUEST)
+                        .end("Requested url is not specified in " + config.downloadHeader + " header");
             } else {
                 //serialize headers and params
-                JsonObject jsonRequest = new HttpServerRequestBean(request).asJsonObject();
+                JsonObject jsonRequest = requestBean.asJsonObject();
                 if (jsonRequest == null) {
+                    LOG.error("Internal error for " + requestBean.id);
                     request.response()
                             .setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR)
                             .end();
-                } else if (!request.headers().contains(config.downloadHeader)) {
-                    LOG.error("Requested url is not set in " + config.downloadHeader + " header");
-                    request.response()
-                            .setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR)
-                            .end("Requested url is not set in " + config.downloadHeader + " header");
                 } else {
                     DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs);
                     vertx.eventBus().send(config.podTopic, jsonRequest, options, r -> {
                         HttpServerResponse response = request.response();
                         if (r.failed()) {
-                            LOG.error("Internal error", r.cause());
+                            LOG.error("Internal error for " + requestBean.id, r.cause());
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                         } else if (r.result() == null || r.result().body() == null) {
-                            LOG.error("Internal error: empty response in event bus");
+                            LOG.error("Internal error for " + requestBean.id + ": empty response in event bus");
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                         } else {
                             JsonObject jsonObject = (JsonObject) r.result().body();
