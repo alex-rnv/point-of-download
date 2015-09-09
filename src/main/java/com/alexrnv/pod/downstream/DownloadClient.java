@@ -53,6 +53,12 @@ public class DownloadClient extends WgetVerticle {
             HttpServerRequestBean upstreamRequest = HttpServerRequestBean.fromJsonObject(jsonObject);
             String requestedUrl = upstreamRequest.headers.get(config.downloadHeader);
 
+            if(requestedUrl == null) {
+                LOG.error("Download header " + config.downloadHeader + " is not set");
+                message.reply(null);
+                return;
+            }
+
             CompletableFuture<HttpClientResponseBean> result = cache.compute(requestedUrl, (reqUrl, val) -> {
                 if (val != null) {
                     LOG.info("Returning cached future for url " + reqUrl + ": " + val);

@@ -62,11 +62,16 @@ public class WgetServer extends WgetVerticle {
                     request.response()
                             .setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR)
                             .end();
+                } else if (!request.headers().contains(config.downloadHeader)) {
+                    LOG.error("Requested url is not set in " + config.downloadHeader + " header");
+                    request.response()
+                            .setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR)
+                            .end("Requested url is not set in " + config.downloadHeader + " header");
                 } else {
                     DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs);
                     vertx.eventBus().send(config.podTopic, jsonRequest, options, r -> {
                         HttpServerResponse response = request.response();
-                        if(r.failed()) {
+                        if (r.failed()) {
                             LOG.error("Internal error", r.cause());
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                         } else if (r.result() == null || r.result().body() == null) {
