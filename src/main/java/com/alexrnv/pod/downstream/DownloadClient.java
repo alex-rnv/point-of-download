@@ -180,7 +180,12 @@ public class DownloadClient extends WgetVerticle {
 
     private void updateResponseAndScheduleCleanup(HttpClientResponseBean bean, String url, String filename) {
         bean.headers.add(config.resultHeader, filename);
+
+        //safe net
+        scheduler.schedule(() -> forceComplete(url), config.requestTimeoutMs + 1000, TimeUnit.MILLISECONDS);
+
         scheduler.schedule(() -> {
+            forceComplete(url);
             cache.remove(url);
             try {
                 LOG.info("Cleaning cached file " + filename);
@@ -189,6 +194,14 @@ public class DownloadClient extends WgetVerticle {
                 LOG.error("Failed to delete file", e);
             }
         }, config.ttlMin, TimeUnit.MINUTES);
+    }
+
+    private void forceComplete(String url) {
+        CompletableFuture<?> future = cache.get(url);
+        if (future != null && !future.isDone()) {
+            LOG.warn("Design error, future was not completed in time");
+            future.completeExceptionally(new TimeoutException("Request timed out"));
+        }
     }
 
 }
