@@ -97,7 +97,7 @@ public class DownloadClient extends WgetVerticle {
                     .handler(response -> {
                         HttpClientResponseBean rb = new HttpClientResponseBean(response);
                         LOG.info("Referrer response for " + upstreamRequest.id + ": " + rb);
-                        if(Http.isCodeOk(response.statusCode())) {
+                        if(!Http.isCodeOk(response.statusCode())) {
                             completeWithError(reqUrl, r, rb);
                         }  else {
                             response.pause();
