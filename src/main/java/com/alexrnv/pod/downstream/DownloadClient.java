@@ -84,7 +84,7 @@ public class DownloadClient extends WgetVerticle {
             url = resolveReferringUrl(reqUrl);
         } catch (MalformedURLException e) {
             LOG.error("Wrong url", e);
-            r.completeExceptionally(e);
+            completeExceptionally(reqUrl, r, e);
         }
 
         if(!r.isDone()) {
@@ -102,7 +102,7 @@ public class DownloadClient extends WgetVerticle {
                         vertx.fileSystem().open(fileName, openOptions, fileEvent -> {
                             if (fileEvent.failed()) {
                                 LOG.error("Failed to open file " + fileName, fileEvent.cause());
-                                r.completeExceptionally(fileEvent.cause());
+                                completeExceptionally(reqUrl, r, fileEvent.cause());
                                 return;
                             }
 
@@ -116,7 +116,7 @@ public class DownloadClient extends WgetVerticle {
                                                 r.complete(rb);
                                             } else {
                                                 LOG.error("Failed to close file " + fileName, event.cause());
-                                                r.completeExceptionally(event.cause());
+                                                completeExceptionally(reqUrl, r, event.cause());
                                             }
                                         });
                                     }
@@ -141,7 +141,7 @@ public class DownloadClient extends WgetVerticle {
                                     config.retry.delayMs, TimeUnit.MILLISECONDS);
                         } else {
                             LOG.info("No more retries for " + upstreamRequest.id);
-                            r.completeExceptionally(t);
+                            completeExceptionally(reqUrl, r, t);
                         }
                     })
                     .setTimeout(config.requestTimeoutMs)
@@ -200,8 +200,14 @@ public class DownloadClient extends WgetVerticle {
         CompletableFuture<?> future = cache.get(url);
         if (future != null && !future.isDone()) {
             LOG.warn("Design error, future was not completed in time");
-            future.completeExceptionally(new TimeoutException("Request timed out"));
+            completeExceptionally(url, future, new TimeoutException("Request timed out"));
         }
+    }
+
+    private void completeExceptionally(String url, CompletableFuture<?> future, Throwable cause) {
+        future.completeExceptionally(cause);
+        //allow failed future to live one retry cycle in cache, and delete it to allow future download attempts
+        scheduler.schedule(() -> cache.remove(url), config.retry.delayMs, TimeUnit.MILLISECONDS);
     }
 
 }
