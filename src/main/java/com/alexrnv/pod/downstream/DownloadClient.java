@@ -3,6 +3,7 @@ package com.alexrnv.pod.downstream;
 import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
 import com.alexrnv.pod.common.WgetVerticle;
+import com.alexrnv.pod.http.Http;
 import io.vertx.core.VertxException;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.file.AsyncFile;
@@ -87,7 +88,7 @@ public class DownloadClient extends WgetVerticle {
             completeExceptionally(reqUrl, r, e);
         }
 
-        if(!r.isDone()) {
+        if (!r.isDone()) {
             final List<String> skipHeaders = Arrays.asList("Host", config.downloadHeader);
             HttpClientRequest clientRequest = client.get(url.getPort(), url.getHost(), url.getFile());
             copyHeaders(upstreamRequest, clientRequest, skipHeaders);
@@ -96,46 +97,50 @@ public class DownloadClient extends WgetVerticle {
                     .handler(response -> {
                         HttpClientResponseBean rb = new HttpClientResponseBean(response);
                         LOG.info("Referrer response for " + upstreamRequest.id + ": " + rb);
-                        response.pause();
-                        final String fileName = getFileName(clientRequest);
-                        OpenOptions openOptions = new OpenOptions().setCreate(true).setTruncateExisting(true);
-                        vertx.fileSystem().open(fileName, openOptions, fileEvent -> {
-                            if (fileEvent.failed()) {
-                                LOG.error("Failed to open file " + fileName, fileEvent.cause());
-                                completeExceptionally(reqUrl, r, fileEvent.cause());
-                                return;
-                            }
-
-                            final AsyncFile asyncFile = fileEvent.result();
-                            final Pump downloadPump = Pump.pump(response, asyncFile);
-
-                            response.endHandler(e -> {
-                                        asyncFile.flush().close(event -> {
-                                            if (event.succeeded()) {
-                                                updateResponseAndScheduleCleanup(rb, reqUrl, fileName);
-                                                r.complete(rb);
-                                            } else {
-                                                LOG.error("Failed to close file " + fileName, event.cause());
-                                                completeExceptionally(reqUrl, r, event.cause());
-                                            }
-                                        });
-                                    }
-                            ).exceptionHandler(t -> {
-                                //"Connection was closed" exception fires every time, even when pump is fully read
-                                if (t instanceof VertxException && t.getMessage().contains("Connection was closed")) {
-                                    LOG.debug("", t);
-                                } else {
-                                    LOG.warn("", t);
+                        if(Http.isCodeOk(response.statusCode())) {
+                            completeWithError(reqUrl, r, rb);
+                        }  else {
+                            response.pause();
+                            final String fileName = getFileName(clientRequest);
+                            OpenOptions openOptions = new OpenOptions().setCreate(true).setTruncateExisting(true);
+                            vertx.fileSystem().open(fileName, openOptions, fileEvent -> {
+                                if (fileEvent.failed()) {
+                                    LOG.error("Failed to open file " + fileName, fileEvent.cause());
+                                    completeExceptionally(reqUrl, r, fileEvent.cause());
+                                    return;
                                 }
-                            });
 
-                            downloadPump.start();
-                            response.resume();
-                        });
+                                final AsyncFile asyncFile = fileEvent.result();
+                                final Pump downloadPump = Pump.pump(response, asyncFile);
+
+                                response.endHandler(e -> {
+                                            asyncFile.flush().close(event -> {
+                                                if (event.succeeded()) {
+                                                    updateResponseAndScheduleCleanup(rb, reqUrl, fileName);
+                                                    r.complete(rb);
+                                                } else {
+                                                    LOG.error("Failed to close file " + fileName, event.cause());
+                                                    completeExceptionally(reqUrl, r, event.cause());
+                                                }
+                                            });
+                                        }
+                                ).exceptionHandler(t -> {
+                                    //"Connection was closed" exception fires every time, even when pump is fully read
+                                    if (t instanceof VertxException && t.getMessage().contains("Connection was closed")) {
+                                        LOG.debug("", t);
+                                    } else {
+                                        LOG.warn("", t);
+                                    }
+                                });
+
+                                downloadPump.start();
+                                response.resume();
+                            });
+                        }
                     })
                     .exceptionHandler(t -> {
                         LOG.error("Failed to process request ", t);
-                        if(retryCounter > 1) {
+                        if (retryCounter > 1) {
                             LOG.info("Retry, counter is " + retryCounter + " for " + upstreamRequest.id);
                             scheduler.schedule(() -> doRequestWithRetry(client, upstreamRequest, reqUrl, retryCounter - 1, r),
                                     config.retry.delayMs, TimeUnit.MILLISECONDS);
@@ -204,8 +209,17 @@ public class DownloadClient extends WgetVerticle {
         }
     }
 
+    private void completeWithError(String url, CompletableFuture<HttpClientResponseBean> future, HttpClientResponseBean bean) {
+        future.complete(bean);
+        removeFailedFuture(url);
+    }
+
     private void completeExceptionally(String url, CompletableFuture<?> future, Throwable cause) {
         future.completeExceptionally(cause);
+        removeFailedFuture(url);
+    }
+
+    private void removeFailedFuture(String url) {
         //allow failed future to live one retry cycle in cache, and delete it to allow future download attempts
         scheduler.schedule(() -> cache.remove(url), config.retry.delayMs, TimeUnit.MILLISECONDS);
     }
