@@ -9,6 +9,11 @@ Also, we may have cases when multiple components require the same file. Only one
 
 ## Design details    
 Instead of using http get request directly, request is sent to wget-server, and requested url is passed as http header field.
+E.g.: 
+```
+curl -X GET -H "Referer:FULL_URI_TO_DOWNLOAD" FULL_URI_OF_WGET_SERVER
+```
+*Referer* is header name from configuration. It is better not to use it or other standard headers.
 
 ## Usage    
 Wget-server is a standalone microservice implemented as [Vert.x 3](http://vertx.io/vertx2/) component. Generally, there is no need to include library in your dependencies, though it is possible.    
