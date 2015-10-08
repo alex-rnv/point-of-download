@@ -15,17 +15,13 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 import io.vertx.core.streams.Pump;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.*;
 
 import static com.alexrnv.pod.http.Http.HTTP_DEFAULT_PORT;
-import static org.apache.commons.lang3.RandomStringUtils.randomAlphanumeric;
 import static org.apache.commons.lang3.StringUtils.substringAfterLast;
 
 /**
@@ -35,6 +31,8 @@ import static org.apache.commons.lang3.StringUtils.substringAfterLast;
 public class DownloadClient extends WgetVerticle {
 
     private static final Logger LOG = LoggerFactory.getLogger(DownloadClient.class);
+
+    private static final int ENSURE_RESPONSE_PAUSE_MS = 1000;
 
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(2, r -> {
         Thread t = new Thread(r);
@@ -85,7 +83,7 @@ public class DownloadClient extends WgetVerticle {
             url = resolveReferringUrl(reqUrl);
         } catch (MalformedURLException e) {
             LOG.error("Wrong url", e);
-            completeExceptionally(reqUrl, r, e);
+            complete(r, reqUrl, null, e);
         }
 
         if (!r.isDone()) {
@@ -98,15 +96,18 @@ public class DownloadClient extends WgetVerticle {
                         HttpClientResponseBean rb = new HttpClientResponseBean(response);
                         LOG.info("Referrer response for " + upstreamRequest.id + ": " + rb);
                         if(!Http.isCodeOk(response.statusCode())) {
-                            completeWithError(reqUrl, r, rb);
+                            complete(r, reqUrl, rb, null);
                         }  else {
                             response.pause();
-                            final String fileName = getFileName(clientRequest);
-                            OpenOptions openOptions = new OpenOptions().setCreate(true).setTruncateExisting(true);
+                            final String fileName = getFileName(clientRequest, upstreamRequest.id);
+
+                            OpenOptions openOptions = new OpenOptions()
+                                    .setCreate(true)
+                                    .setTruncateExisting(true);
                             vertx.fileSystem().open(fileName, openOptions, fileEvent -> {
                                 if (fileEvent.failed()) {
                                     LOG.error("Failed to open file " + fileName, fileEvent.cause());
-                                    completeExceptionally(reqUrl, r, fileEvent.cause());
+                                    complete(r, reqUrl, null, fileEvent.cause());
                                     return;
                                 }
 
@@ -116,11 +117,13 @@ public class DownloadClient extends WgetVerticle {
                                 response.endHandler(e -> {
                                             asyncFile.flush().close(event -> {
                                                 if (event.succeeded()) {
-                                                    updateResponseAndScheduleCleanup(rb, reqUrl, fileName);
-                                                    r.complete(rb);
+                                                    //add filename header for server verticle
+                                                    rb.headers.add(config.resultHeader, fileName);
+                                                    //complete successfully
+                                                    complete(r, null, rb, null);
                                                 } else {
                                                     LOG.error("Failed to close file " + fileName, event.cause());
-                                                    completeExceptionally(reqUrl, r, event.cause());
+                                                    complete(r, reqUrl, null, event.cause());
                                                 }
                                             });
                                         }
@@ -130,12 +133,21 @@ public class DownloadClient extends WgetVerticle {
                                         LOG.debug("", t);
                                     } else {
                                         LOG.warn("", t);
+                                        complete(r, reqUrl, null, t);
                                     }
                                 });
+
+                                //safe net, in case response never come
+                                scheduler.schedule(() -> ensureComplete(reqUrl),
+                                        config.requestTimeoutMs + ENSURE_RESPONSE_PAUSE_MS,
+                                        TimeUnit.MILLISECONDS);
 
                                 downloadPump.start();
                                 response.resume();
                             });
+
+                            //clean cached value and delete file when ttl hit
+                            cleanCachedFile(reqUrl, fileName, config.ttlMin, TimeUnit.MINUTES);
                         }
                     })
                     .exceptionHandler(t -> {
@@ -146,7 +158,7 @@ public class DownloadClient extends WgetVerticle {
                                     config.retry.delayMs, TimeUnit.MILLISECONDS);
                         } else {
                             LOG.info("No more retries for " + upstreamRequest.id);
-                            completeExceptionally(reqUrl, r, t);
+                            complete(r, reqUrl, null, t);
                         }
                     })
                     .setTimeout(config.requestTimeoutMs)
@@ -179,49 +191,57 @@ public class DownloadClient extends WgetVerticle {
         }
     }
 
-    private String getFileName(HttpClientRequest clientRequest) {
-        return config.cacheDir + "f" + randomAlphanumeric(8) + "_" + substringAfterLast(clientRequest.uri(), "/");
+    private String getFileName(HttpClientRequest clientRequest, String id) {
+        return config.cacheDir + "f" + id + "_" + substringAfterLast(clientRequest.uri(), "/");
     }
 
-    private void updateResponseAndScheduleCleanup(HttpClientResponseBean bean, String url, String filename) {
-        bean.headers.add(config.resultHeader, filename);
-
-        //safe net
-        scheduler.schedule(() -> forceComplete(url), config.requestTimeoutMs + 1000, TimeUnit.MILLISECONDS);
-
+    private void cleanCachedFile(String url, String filename, int delay, TimeUnit timeUnit) {
         scheduler.schedule(() -> {
-            forceComplete(url);
+            //remove result from cache
+            ensureComplete(url);
             cache.remove(url);
-            try {
-                LOG.info("Cleaning cached file " + filename);
-                Files.delete(Paths.get(filename));
-            } catch (IOException e) {
-                LOG.error("Failed to delete file", e);
-            }
-        }, config.ttlMin, TimeUnit.MINUTES);
+            //delete from file system
+            LOG.info("Deleting cached file " + filename);
+            vertx.fileSystem().delete(filename, event -> {
+                if (event.succeeded()) {
+                    LOG.info("Deleted: " + filename);
+                } else {
+                    LOG.error("Failed to delete", event.cause());
+                }
+            });
+        }, delay, timeUnit);
     }
 
-    private void forceComplete(String url) {
-        CompletableFuture<?> future = cache.get(url);
+    private void ensureComplete(String url) {
+        CompletableFuture<HttpClientResponseBean> future = cache.get(url);
         if (future != null && !future.isDone()) {
             LOG.warn("Design error, future was not completed in time");
-            completeExceptionally(url, future, new TimeoutException("Request timed out"));
+            complete(future, url, null, new TimeoutException("Request timed out"));
         }
     }
 
-    private void completeWithError(String url, CompletableFuture<HttpClientResponseBean> future, HttpClientResponseBean bean) {
-        future.complete(bean);
-        removeFailedFuture(url);
-    }
+    /**
+     * Logic is not really straightforward, completion type depends on input parameters.
+     * One and only one of 'bean' or 'cause' should be present.
+     * @param future - task to complete.
+     * @param url - if present, it means url should be deleted from cache shortly.
+     * @param bean - if present, it means normal completion, and this is a completion result.
+     * @param cause - if present, it means exceptional completion, and this is a cause.
+     */
+    private void complete(CompletableFuture<HttpClientResponseBean> future,
+                          String url,
+                          HttpClientResponseBean bean,
+                          Throwable cause) {
 
-    private void completeExceptionally(String url, CompletableFuture<?> future, Throwable cause) {
-        future.completeExceptionally(cause);
-        removeFailedFuture(url);
+        if(url != null) {
+            //allow failed future to live one retry cycle in cache, and delete it to allow future download attempts
+            scheduler.schedule(() -> cache.remove(url), config.retry.delayMs, TimeUnit.MILLISECONDS);
+        }
+        if(bean != null) {
+            future.complete(bean);
+        }
+        if(cause != null) {
+            future.completeExceptionally(cause);
+        }
     }
-
-    private void removeFailedFuture(String url) {
-        //allow failed future to live one retry cycle in cache, and delete it to allow future download attempts
-        scheduler.schedule(() -> cache.remove(url), config.retry.delayMs, TimeUnit.MILLISECONDS);
-    }
-
 }

@@ -34,7 +34,9 @@ public class WgetServerTest {
         vertx = Vertx.vertx();
         server = vertx.createHttpServer();
         server.requestHandler(r -> {
-            if(r.uri().endsWith("/100000000")) {
+            if(r.uri().endsWith("/error")) {
+                r.response().setStatusCode(500).end();
+            } else if(r.uri().endsWith("/100000000")) {
                 byte[] bytes = new byte[100000000];
                 new Random().nextBytes(bytes);
                 Buffer buf = Buffer.buffer(bytes);
@@ -86,11 +88,11 @@ public class WgetServerTest {
 
     @Test
     public void testDifferentUrls(TestContext context) throws IOException {
-        Async async1 = context.async();
+        Async async = context.async();
         DeploymentOptions options = new DeploymentOptions().setConfig(readConfig("test_cfg.json"));
         vertx.deployVerticle(WgetServer.class.getName(), options, r -> {
             context.assertTrue(r.succeeded());
-            async1.complete();
+            async.complete();
         });
         sendAndCheckResponseLength(context, 1);
         sendAndCheckResponseLength(context, 2);

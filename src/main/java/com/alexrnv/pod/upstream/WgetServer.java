@@ -85,7 +85,12 @@ public class WgetServer extends WgetVerticle {
                             copyHeaders(responseBean, response, skipHeaders);
                             if (Http.isCodeOk(responseBean.statusCode)) {
                                 String fileName = responseBean.headers.get(config.resultHeader);
-                                response.sendFile(fileName);
+                                if (fileName == null) {
+                                    LOG.error("Internal error for " + requestBean.id + ": empty cached file name");
+                                    response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
+                                } else {
+                                    response.sendFile(fileName);
+                                }
                             } else {
                                 response.setStatusCode(responseBean.statusCode)
                                         .setStatusMessage(responseBean.statusMessage)
