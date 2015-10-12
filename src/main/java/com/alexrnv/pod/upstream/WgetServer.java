@@ -7,6 +7,8 @@ import com.alexrnv.pod.downstream.DownloadClient;
 import com.alexrnv.pod.http.Http;
 import io.vertx.core.DeploymentOptions;
 import io.vertx.core.eventbus.DeliveryOptions;
+import io.vertx.core.eventbus.ReplyException;
+import io.vertx.core.eventbus.ReplyFailure;
 import io.vertx.core.http.HttpMethod;
 import io.vertx.core.http.HttpServerResponse;
 import io.vertx.core.json.JsonObject;
@@ -29,6 +31,8 @@ import static com.alexrnv.pod.http.Http.HTTP_CODE_METHOD_NOT_ALLOWED;
 public class WgetServer extends WgetVerticle {
 
     private static final Logger LOG = LoggerFactory.getLogger(WgetServer.class);
+
+    private static final int EVENT_BUS_DELAY_MS = 2000;
 
     private final List<HttpMethod> allowedMethods = Collections.singletonList(HttpMethod.GET);
     @Override
@@ -70,12 +74,18 @@ public class WgetServer extends WgetVerticle {
                             .setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR)
                             .end();
                 } else {
-                    DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs);
+                    DeliveryOptions options = new DeliveryOptions().setSendTimeout(config.requestTimeoutMs + EVENT_BUS_DELAY_MS);
                     vertx.eventBus().send(config.podTopic, jsonRequest, options, r -> {
                         HttpServerResponse response = request.response();
                         if (r.failed()) {
-                            LOG.error("Internal error for " + requestBean.id, r.cause());
-                            response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
+                            if(r instanceof ReplyException && ReplyFailure.TIMEOUT.equals(((ReplyException)r).failureType())) {
+                                //ignore event bus timeouts (it seems they fire every time even after successful event)
+                                //we rely on http response timeout
+                                LOG.debug("Event bus timeout: " + r.cause().getMessage());
+                            } else {
+                                LOG.error("Internal error for " + requestBean.id, r.cause());
+                                response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
+                            }
                         } else if (r.result() == null || r.result().body() == null) {
                             LOG.error("Internal error for " + requestBean.id + ": empty response in event bus");
                             response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
