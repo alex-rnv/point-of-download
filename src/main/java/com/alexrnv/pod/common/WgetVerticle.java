@@ -7,10 +7,7 @@ import io.vertx.core.logging.Logger;
 import io.vertx.core.logging.LoggerFactory;
 
 /**
- * Date: 9/4/2015
- * Time: 11:23 AM
- *
- * Author: Alex
+ * Abstract interface for verticles. Handles configuration loading and parsing.
  */
 public abstract class WgetVerticle extends AbstractVerticle {
 

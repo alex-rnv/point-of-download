@@ -26,6 +26,9 @@ import java.util.Random;
 @RunWith(VertxUnitRunner.class)
 public class WgetServerTest {
 
+    public static final int DOWNLOAD_SERVER_PORT = 8070;//same as test json cfg
+    private static final int REMOTE_SERVER_PORT = 8060;
+
     private Vertx vertx;
     private HttpServer server;
 
@@ -48,7 +51,7 @@ public class WgetServerTest {
             } else {
                 r.response().end("x");
             }
-        }).listen(8060, "localhost", r -> context.assertTrue(r.succeeded()));
+        }).listen(REMOTE_SERVER_PORT, "localhost", r -> context.assertTrue(r.succeeded()));
     }
 
     @After
@@ -107,7 +110,7 @@ public class WgetServerTest {
     private void sendAndCheckResponseLength(HttpClient client0, TestContext context, int len) throws IOException {
         HttpClient client = client0 != null ? client0 : vertx.createHttpClient();
         Async async = context.async();
-        client.get(8070, "localhost", "/", resp ->
+        client.get(DOWNLOAD_SERVER_PORT, "localhost", "/", resp ->
                 resp.bodyHandler(body -> {
                     context.assertEquals(len, body.getBytes().length);
                     if(client0 == null) client.close();

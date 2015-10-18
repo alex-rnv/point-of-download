@@ -6,8 +6,7 @@ import static com.alexrnv.pod.bean.BeanUtil.resolvePath;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Author Alex
- *         9/3/2015.
+ * Application-wide configuration, comes from external *.json.
  */
 public class ConfigBean {
     public final long requestTimeoutMs;

@@ -25,8 +25,10 @@ import static com.alexrnv.pod.http.Http.HTTP_DEFAULT_PORT;
 import static org.apache.commons.lang3.StringUtils.substringAfterLast;
 
 /**
- * Author Alex
- *         9/1/2015.
+ * Given multiple download requests, caches future result and sends one http-get request to target server,
+ * and notifies asynchronously all recipients when response comes. Requests come from internal event bus.
+ * Received files are cached in file-system, and deleted when configured ttl timeout expires. All subsequent
+ * requests are served with cached local file, until it is removed.
  */
 public class DownloadClient extends WgetVerticle {
 
@@ -50,6 +52,11 @@ public class DownloadClient extends WgetVerticle {
         eventBus.consumer(config.podTopic, message -> {
             JsonObject jsonObject = (JsonObject) message.body();
             HttpServerRequestBean upstreamRequest = HttpServerRequestBean.fromJsonObject(jsonObject);
+            if(upstreamRequest == null) {
+                message.reply(null);
+                return;
+            }
+
             String requestedUrl = upstreamRequest.headers.get(config.downloadHeader);
 
             if(requestedUrl == null) {

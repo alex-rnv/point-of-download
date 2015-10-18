@@ -7,6 +7,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.MultiMap;
+import io.vertx.core.eventbus.MessageCodec;
 import io.vertx.core.http.HttpServerRequest;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -16,10 +17,9 @@ import org.apache.commons.lang3.RandomStringUtils;
 import java.io.IOException;
 
 /**
- * Date: 9/2/2015
- * Time: 12:00 PM
- *
- * Author: Alex
+ * Json serializable significant data from {@link HttpServerRequest}, required for passing data between
+ * verticles via event bus.
+ * TODO: replace with {@link MessageCodec}
  */
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class HttpServerRequestBean {

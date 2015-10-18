@@ -6,6 +6,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.vertx.core.MultiMap;
+import io.vertx.core.eventbus.MessageCodec;
 import io.vertx.core.http.HttpClientResponse;
 import io.vertx.core.json.JsonObject;
 import io.vertx.core.logging.Logger;
@@ -15,10 +16,9 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Date: 9/2/2015
- * Time: 5:21 PM
- *
- * Author: Alex
+ * Json serializable significant data from {@link HttpClientResponse}, required for passing data between
+ * verticles via event bus.
+ * TODO: replace with {@link MessageCodec}
  */
 public class HttpClientResponseBean {
     private static final Logger LOG = LoggerFactory.getLogger(HttpClientResponseBean.class);
@@ -38,6 +38,7 @@ public class HttpClientResponseBean {
     @JsonProperty
     public List<String> cookies;
 
+    //required by jackson
     private HttpClientResponseBean(){}
 
     protected HttpClientResponseBean(int statusCode, String statusMessage, MultiMap headers, MultiMap trailers, List<String> cookies) {

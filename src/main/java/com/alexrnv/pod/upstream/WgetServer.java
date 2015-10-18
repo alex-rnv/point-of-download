@@ -25,8 +25,8 @@ import static com.alexrnv.pod.http.Http.HTTP_CODE_INTERNAL_SERVER_ERROR;
 import static com.alexrnv.pod.http.Http.HTTP_CODE_METHOD_NOT_ALLOWED;
 
 /**
- * Author Alex
- *         9/1/2015.
+ * Application entry point, handles http-get requests and redirects to {@link DownloadClient} instances via
+ * event bus (for scalability).
  */
 public class WgetServer extends WgetVerticle {
 
@@ -92,19 +92,23 @@ public class WgetServer extends WgetVerticle {
                         } else {
                             JsonObject jsonObject = (JsonObject) r.result().body();
                             HttpClientResponseBean responseBean = HttpClientResponseBean.fromJsonObject(jsonObject);
-                            copyHeaders(responseBean, response, skipHeaders);
-                            if (Http.isCodeOk(responseBean.statusCode)) {
-                                String fileName = responseBean.headers.get(config.resultHeader);
-                                if (fileName == null) {
-                                    LOG.error("Internal error for " + requestBean.id + ": empty cached file name");
-                                    response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
-                                } else {
-                                    response.sendFile(fileName);
-                                }
+                            if(responseBean == null) {
+                                response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
                             } else {
-                                response.setStatusCode(responseBean.statusCode)
-                                        .setStatusMessage(responseBean.statusMessage)
-                                        .end();
+                                copyHeaders(responseBean, response, skipHeaders);
+                                if (Http.isCodeOk(responseBean.statusCode)) {
+                                    String fileName = responseBean.headers.get(config.resultHeader);
+                                    if (fileName == null) {
+                                        LOG.error("Internal error for " + requestBean.id + ": empty cached file name");
+                                        response.setStatusCode(HTTP_CODE_INTERNAL_SERVER_ERROR).end();
+                                    } else {
+                                        response.sendFile(fileName);
+                                    }
+                                } else {
+                                    response.setStatusCode(responseBean.statusCode)
+                                            .setStatusMessage(responseBean.statusMessage)
+                                            .end();
+                                }
                             }
                         }
                     });

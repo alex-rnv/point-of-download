@@ -6,10 +6,7 @@ import static java.lang.System.getProperty;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Date: 9/4/2015
- * Time: 4:33 PM
- *
- * Author: Alex
+ * Utilities
  */
 public class BeanUtil {
 
