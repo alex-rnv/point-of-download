@@ -4,7 +4,6 @@ import com.alexrnv.pod.bean.HttpClientResponseBean;
 import com.alexrnv.pod.bean.HttpServerRequestBean;
 import com.alexrnv.pod.common.WgetVerticle;
 import com.alexrnv.pod.http.Http;
-import io.vertx.core.VertxException;
 import io.vertx.core.eventbus.EventBus;
 import io.vertx.core.file.AsyncFile;
 import io.vertx.core.file.OpenOptions;
@@ -22,6 +21,7 @@ import java.util.List;
 import java.util.concurrent.*;
 
 import static com.alexrnv.pod.http.Http.HTTP_DEFAULT_PORT;
+import static java.util.Objects.requireNonNull;
 import static org.apache.commons.lang3.StringUtils.substringAfterLast;
 
 /**
@@ -122,25 +122,21 @@ public class DownloadClient extends WgetVerticle {
                                 final Pump downloadPump = Pump.pump(response, asyncFile);
 
                                 response.endHandler(e -> {
-                                            asyncFile.flush().close(event -> {
-                                                if (event.succeeded()) {
-                                                    //add filename header for server verticle
-                                                    rb.headers.add(config.resultHeader, fileName);
-                                                    //complete successfully
-                                                    complete(r, null, rb, null);
-                                                } else {
-                                                    LOG.error("Failed to close file " + fileName, event.cause());
-                                                    complete(r, reqUrl, null, event.cause());
-                                                }
-                                            });
-                                        }
-                                ).exceptionHandler(t -> {
-                                    //"Connection was closed" exception fires every time, even when pump is fully read
-                                    if (t instanceof VertxException && t.getMessage().contains("Connection was closed")) {
-                                        LOG.debug("", t);
+                                    LOG.debug("End handler called for " + upstreamRequest.id);
+                                    //add filename header for server verticle
+                                    rb.headers.add(config.resultHeader, fileName);
+                                    closeAsyncFileAndComplete(asyncFile, fileName, rb, r, true);
+
+                                }).exceptionHandler(t -> {
+                                    LOG.debug("Exception handler called for " + upstreamRequest.id);
+                                    if (retryCounter > 1) {
+                                        LOG.info("Retry, counter is " + retryCounter + " for " + upstreamRequest.id);
+                                        scheduler.schedule(() -> doRequestWithRetry(client, upstreamRequest, reqUrl, retryCounter - 1, r),
+                                                config.retry.delayMs, TimeUnit.MILLISECONDS);
+                                        asyncFile.close();//close
                                     } else {
-                                        LOG.warn("", t);
-                                        complete(r, reqUrl, null, t);
+                                        LOG.info("No more retries for " + upstreamRequest.id);
+                                        closeAsyncFileAndComplete(asyncFile, fileName, rb, r, false);
                                     }
                                 });
 
@@ -159,17 +155,34 @@ public class DownloadClient extends WgetVerticle {
                     })
                     .exceptionHandler(t -> {
                         LOG.error("Failed to process request ", t);
-                        if (retryCounter > 1) {
-                            LOG.info("Retry, counter is " + retryCounter + " for " + upstreamRequest.id);
-                            scheduler.schedule(() -> doRequestWithRetry(client, upstreamRequest, reqUrl, retryCounter - 1, r),
-                                    config.retry.delayMs, TimeUnit.MILLISECONDS);
-                        } else {
-                            LOG.info("No more retries for " + upstreamRequest.id);
-                            complete(r, reqUrl, null, t);
-                        }
+                        complete(r, reqUrl, null, t);
                     })
                     .setTimeout(config.requestTimeoutMs)
                     .end();
+        }
+    }
+
+    /**
+     * @param file to close
+     * @param name file name
+     * @param rb request bean
+     * @param r future
+     * @param waitFile - if true, complete future only after file is closed, async otherwise
+     */
+    private void closeAsyncFileAndComplete(AsyncFile file, String name, HttpClientResponseBean rb,
+                                           CompletableFuture<HttpClientResponseBean> r, boolean waitFile) {
+        file.flush().close(event -> {
+            LOG.debug("Closing file " + name);
+            if (event.failed()) {
+                LOG.error("Failed to close file " + name, event.cause());
+            }
+            if(waitFile) {
+                //complete successfully
+                complete(r, null, rb, null);
+            }
+        });
+        if(!waitFile) {
+            complete(r, null, rb, null);
         }
     }
 
@@ -239,7 +252,10 @@ public class DownloadClient extends WgetVerticle {
                           String url,
                           HttpClientResponseBean bean,
                           Throwable cause) {
-
+        if(requireNonNull(future).isDone()) {
+            LOG.warn("Future is already completed");
+            return;
+        }
         if(url != null) {
             //allow failed future to live one retry cycle in cache, and delete it to allow future download attempts
             scheduler.schedule(() -> cache.remove(url), config.retry.delayMs, TimeUnit.MILLISECONDS);
