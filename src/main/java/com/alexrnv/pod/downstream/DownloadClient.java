@@ -128,7 +128,7 @@ public class DownloadClient extends WgetVerticle {
                                     closeAsyncFileAndComplete(asyncFile, fileName, rb, r, true, null);
 
                                 }).exceptionHandler(t -> {
-                                    LOG.debug("Exception handler called for " + upstreamRequest.id);
+                                    LOG.debug("Exception handler called for " + upstreamRequest.id + ": " + t.getMessage());
                                     if (retryCounter > 1) {
                                         LOG.info("Retry, counter is " + retryCounter + " for " + upstreamRequest.id);
                                         scheduler.schedule(() -> doRequestWithRetry(client, upstreamRequest, reqUrl, retryCounter - 1, r),
