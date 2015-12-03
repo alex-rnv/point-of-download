@@ -125,7 +125,7 @@ public class DownloadClient extends WgetVerticle {
                                     LOG.debug("End handler called for " + upstreamRequest.id);
                                     //add filename header for server verticle
                                     rb.headers.add(config.resultHeader, fileName);
-                                    closeAsyncFileAndComplete(asyncFile, fileName, rb, r, true);
+                                    closeAsyncFileAndComplete(asyncFile, fileName, rb, r, true, null);
 
                                 }).exceptionHandler(t -> {
                                     LOG.debug("Exception handler called for " + upstreamRequest.id);
@@ -136,7 +136,7 @@ public class DownloadClient extends WgetVerticle {
                                         asyncFile.close();//close
                                     } else {
                                         LOG.info("No more retries for " + upstreamRequest.id);
-                                        closeAsyncFileAndComplete(asyncFile, fileName, rb, r, false);
+                                        closeAsyncFileAndComplete(asyncFile, fileName, rb, r, false, reqUrl);
                                     }
                                 });
 
@@ -170,7 +170,7 @@ public class DownloadClient extends WgetVerticle {
      * @param waitFile - if true, complete future only after file is closed, async otherwise
      */
     private void closeAsyncFileAndComplete(AsyncFile file, String name, HttpClientResponseBean rb,
-                                           CompletableFuture<HttpClientResponseBean> r, boolean waitFile) {
+                                           CompletableFuture<HttpClientResponseBean> r, boolean waitFile, String reqUrl) {
         file.flush().close(event -> {
             LOG.debug("Closing file " + name);
             if (event.failed()) {
@@ -178,11 +178,11 @@ public class DownloadClient extends WgetVerticle {
             }
             if(waitFile) {
                 //complete successfully
-                complete(r, null, rb, null);
+                complete(r, reqUrl, rb, null);
             }
         });
         if(!waitFile) {
-            complete(r, null, rb, null);
+            complete(r, reqUrl, rb, null);
         }
     }
 
@@ -258,7 +258,10 @@ public class DownloadClient extends WgetVerticle {
         }
         if(url != null) {
             //allow failed future to live one retry cycle in cache, and delete it to allow future download attempts
-            scheduler.schedule(() -> cache.remove(url), config.retry.delayMs, TimeUnit.MILLISECONDS);
+            scheduler.schedule(() -> {
+                LOG.debug("Deleting url " + url + " from cache");
+                cache.remove(url);
+            }, config.retry.delayMs, TimeUnit.MILLISECONDS);
         }
         if(bean != null) {
             future.complete(bean);
